@@ -105,3 +105,46 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_getppid(void)
+{
+  struct proc *p = myproc();
+  int ppid;
+
+  acquire(&p->lock);
+  if(p->parent)
+    ppid = p->parent->pid;
+  else
+    ppid = p->pid;  // si init/no padre, devolver su propio pid
+  release(&p->lock);
+
+  return ppid;
+}
+
+uint64
+sys_getancestor(void)
+{
+  int n;
+  // En esta versión de xv6, argint NO retorna nada (void)
+  argint(0, &n);
+  if(n < 0) return -1;
+
+  struct proc *cur = myproc();
+
+  // hand-over-hand locking para leer la cadena de parent
+  acquire(&cur->lock);
+  for(int i = 0; i < n; i++){
+    if(cur->parent == 0){
+      release(&cur->lock);
+      return -1;
+    }
+    struct proc *next = cur->parent;
+    acquire(&next->lock);
+    release(&cur->lock);
+    cur = next;
+  }
+  int ans = cur->pid;
+  release(&cur->lock);
+  return ans;
+}

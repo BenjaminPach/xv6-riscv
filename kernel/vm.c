@@ -484,3 +484,79 @@ ismapped(pagetable_t pagetable, uint64 va)
   }
   return 0;
 }
+
+int
+mrdprotect(void *addr, int len)
+{
+  struct proc *p = myproc();
+  pagetable_t pagetable = p->pagetable;
+  uint64 va = (uint64)addr;
+
+  if (len <= 0)
+    return -1;
+  if (va % PGSIZE != 0)
+    return -1;
+
+  for (int i = 0; i < len; i++) {
+    uint64 cur_va = va + (uint64)i * PGSIZE;
+
+    if (cur_va >= p->sz)
+      return -1;
+
+    pte_t *pte = walk(pagetable, cur_va, 0);
+    if (pte == 0)
+      return -1;
+
+    pte_t entry = *pte;
+
+    if ((entry & PTE_V) == 0)
+      return -1;
+    if ((entry & PTE_U) == 0)
+      return -1;
+
+    // RISC-V forbids W without R, so clear both to block reads cleanly.
+    entry &= ~(PTE_R | PTE_W);
+    *pte = entry;
+  }
+
+  sfence_vma();
+
+  return 0;
+}
+
+int
+munrdprotect(void *addr, int len)
+{
+  struct proc *p = myproc();
+  pagetable_t pagetable = p->pagetable;
+  uint64 va = (uint64)addr;
+
+  if (len <= 0)
+    return -1;
+  if (va % PGSIZE != 0)
+    return -1;
+
+  for (int i = 0; i < len; i++) {
+    uint64 cur_va = va + (uint64)i * PGSIZE;
+
+    if (cur_va >= p->sz)
+      return -1;
+
+    pte_t *pte = walk(pagetable, cur_va, 0);
+    if (pte == 0)
+      return -1;
+
+    pte_t entry = *pte;
+
+    if ((entry & PTE_V) == 0)
+      return -1;
+    if ((entry & PTE_U) == 0)
+      return -1;
+
+    entry |= (PTE_R | PTE_W);
+    *pte = entry;
+  }
+
+  sfence_vma();
+  return 0;
+}

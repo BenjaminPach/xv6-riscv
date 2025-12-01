@@ -71,6 +71,11 @@ usertrap(void)
   } else if((r_scause() == 15 || r_scause() == 13) &&
             vmfault(p->pagetable, r_stval(), (r_scause() == 13)? 1 : 0) != 0) {
     // page fault on lazily-allocated page
+  } else if(r_scause() == 13 || r_scause() == 15){
+    // page fault (e.g., protección de memoria)
+    printf("usertrap(): page fault pid=%d sepc=0x%lx va=0x%lx\n",
+           p->pid, r_sepc(), r_stval());
+    setkilled(p);
   } else {
     printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
     printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
@@ -216,4 +221,3 @@ devintr()
     return 0;
   }
 }
-

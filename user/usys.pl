@@ -21,7 +21,8 @@ sub entry {
     print " ecall\n";
     print " ret\n";
 }
-	
+
+entry("settickets");
 entry("fork");
 entry("exit");
 entry("wait");
@@ -45,3 +46,6 @@ entry("pause");
 entry("uptime");
 entry("getppid");
 entry("getancestor");
+entry("mrdprotect");
+entry("munrdprotect");
+

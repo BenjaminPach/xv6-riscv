@@ -25,6 +25,11 @@ extern char trampoline[]; // trampoline.S
 // memory model when using p->parent.
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
+static unsigned int krand_state = 123456789u;
+static inline unsigned int krand(void) {
+  krand_state = krand_state * 1664525u + 1013904223u;
+  return krand_state;
+}
 
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
@@ -146,6 +151,8 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  p->tickets = 100;
+  p->cpu_slices = 0;
   return p;
 }
 
@@ -287,6 +294,12 @@ kfork(void)
 
   safestrcpy(np->name, p->name, sizeof(p->name));
 
+    // --- Lottery Scheduling: herencia razonable ---
+  np->tickets    = p->tickets;
+  np->cpu_slices = 0;
+
+  
+
   pid = np->pid;
 
   release(&np->lock);
@@ -426,38 +439,62 @@ scheduler(void)
 
   c->proc = 0;
   for(;;){
-    // The most recent process to run may have had interrupts
-    // turned off; enable them to avoid a deadlock if all
-    // processes are waiting. Then turn them back off
-    // to avoid a possible race between an interrupt
-    // and wfi.
+    // Evitar deadlocks si todos esperan; luego desactivar para no correr carreras con wfi.
     intr_on();
     intr_off();
 
-    int found = 0;
+    // 1) Sumar tickets de procesos RUNNABLE
+    int total = 0;
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
-
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-        found = 1;
+        if(p->tickets < 1) p->tickets = 1; // robustez
+        total += p->tickets;
       }
       release(&p->lock);
     }
-    if(found == 0) {
-      // nothing to run; stop running on this core until an interrupt.
+
+    if(total == 0){
+      // nada que ejecutar -> dormir CPU hasta próxima interrupción
+      asm volatile("wfi");
+      continue;
+    }
+
+    // 2) Sortear
+    int r = (int)(krand() % total) + 1;
+    int acc = 0;
+    int found = 0;
+
+    // 3) Selección proporcional a tickets
+    for(p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+      if(p->state == RUNNABLE){
+        acc += p->tickets;
+        if(acc >= r){
+          // Elegido por lotería
+          p->state = RUNNING;
+          p->cpu_slices++;     // contabilidad: cuántas veces fue elegido
+          c->proc = p;
+
+          swtch(&c->context, &p->context);
+
+          // Proceso devolvió el control al scheduler.
+          c->proc = 0;
+          found = 1;
+          release(&p->lock);
+          break; // volver a la ronda externa
+        }
+      }
+      release(&p->lock);
+    }
+
+    if(!found){
+      // Si por alguna carrera nadie quedó elegido (poco probable), duerme breve.
       asm volatile("wfi");
     }
   }
 }
+
 
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores
@@ -673,15 +710,18 @@ procdump(void)
   struct proc *p;
   char *state;
 
-  printf("\n");
-  for(p = proc; p < &proc[NPROC]; p++){
-    if(p->state == UNUSED)
-      continue;
-    if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
-      state = states[p->state];
-    else
-      state = "???";
-    printf("%d %s %s", p->pid, state, p->name);
-    printf("\n");
-  }
+ printf("\n");
+for(p = proc; p < &proc[NPROC]; p++){
+  if(p->state == UNUSED)
+    continue;
+  if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
+    state = states[p->state];
+  else
+    state = "???";
+  //              pid  state  name      tickets  slices
+  printf("%d %s %s  tickets=%d  slices=%d\n",
+         p->pid, state, p->name, p->tickets, p->cpu_slices);
 }
+
+}
+//             labubu

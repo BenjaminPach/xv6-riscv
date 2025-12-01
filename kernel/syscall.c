@@ -7,6 +7,8 @@
 #include "syscall.h"
 #include "defs.h"
 
+
+
 // Fetch the uint64 at addr from the current process.
 int
 fetchaddr(uint64 addr, uint64 *ip)
@@ -101,10 +103,12 @@ extern uint64 sys_unlink(void);
 extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
-
+extern uint64 sys_settickets(void);
 // *** NUEVAS syscalls ***
 extern uint64 sys_getppid(void);
 extern uint64 sys_getancestor(void);
+extern uint64 sys_mrdprotect(void);
+extern uint64 sys_munrdprotect(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -130,10 +134,14 @@ static uint64 (*syscalls[])(void) = {
   [SYS_link]        sys_link,
   [SYS_mkdir]       sys_mkdir,
   [SYS_close]       sys_close,
+  [SYS_settickets] sys_settickets,
+
 
   // *** MAPEOS NUEVOS ***
   [SYS_getppid]     sys_getppid,
   [SYS_getancestor] sys_getancestor,
+  [SYS_mrdprotect]  sys_mrdprotect,
+  [SYS_munrdprotect] sys_munrdprotect,
   
 };
 

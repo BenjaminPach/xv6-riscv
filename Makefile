@@ -124,6 +124,7 @@ mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
 
 UPROGS=\
 	$U/_cat\
+	$U/_demo\
 	$U/_echo\
 	$U/_forktest\
 	$U/_grep\
@@ -144,6 +145,7 @@ UPROGS=\
 	$U/_dorphan\
 	$U/_yosoytupadre\
 	$U/_orphantest\
+	$U/_rdprotect_test
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

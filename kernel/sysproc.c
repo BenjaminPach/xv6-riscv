@@ -148,3 +148,39 @@ sys_getancestor(void)
   release(&cur->lock);
   return ans;
 }
+
+uint64
+sys_settickets(void)
+{
+  int n;
+  argint(0, &n);
+  if(n < 1) n = 1;
+
+  struct proc *p = myproc();
+  p->tickets = n;
+  return 0;
+}
+
+uint64
+sys_mrdprotect(void)
+{
+  uint64 addr;
+  int len;
+
+  argaddr(0, &addr);
+  argint(1, &len);
+
+  return mrdprotect((void *)addr, len);
+}
+
+uint64
+sys_munrdprotect(void)
+{
+  uint64 addr;
+  int len;
+
+  argaddr(0, &addr);
+  argint(1, &len);
+
+  return munrdprotect((void *)addr, len);
+}

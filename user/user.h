@@ -25,6 +25,7 @@ char* sys_sbrk(int,int);
 int pause(int);
 int uptime(void);
 int sleep(int);
+int settickets(int n);
 
 // ulib.c
 int stat(const char*, struct stat*);
@@ -51,3 +52,5 @@ void free(void*);
 
 int getppid(void);
 int getancestor(int);
+int mrdprotect(void *addr, int len);
+int munrdprotect(void *addr, int len);
